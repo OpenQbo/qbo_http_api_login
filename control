@@ -3,6 +3,7 @@ Source: qboros-electric-qbo-http-api-login
 Version: 1.0-openqbo0
 Priority: standard
 Architecture: amd64
+Section: OpenQbo
 Maintainer: Daniel Cuadrado <daniel.cuadrado@openqbo.org>
 Homepage: http://openqbo.org/wiki/doku.php?id=qbo_apps:ros_stack:qbo_http_api_login
-Description: 
+Description: REST Service to comunicate Q.bo
