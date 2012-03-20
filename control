@@ -4,7 +4,7 @@ Version: 1.0-openqbo0
 Priority: standard
 Architecture: amd64
 Section: OpenQbo
-Depends: ros-electric-ros, python-tornado>=2.2
+Depends: ros-electric-ros, python-tornado (>= 2.2)
 Maintainer: Daniel Cuadrado <daniel.cuadrado@openqbo.org>
 Homepage: http://openqbo.org/wiki/doku.php?id=qbo_apps:ros_stack:qbo_http_api_login
 Description: REST Service to comunicate Q.bo
