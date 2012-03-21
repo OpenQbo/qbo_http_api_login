@@ -8,19 +8,19 @@ import tornado.web
 
 import json
 
-import roslib; roslib.load_manifest('face_tracking')
+import roslib; roslib.load_manifest('qbo_face_tracking')
 #roslib.load_manifest('qbo_listen')
 #roslib.load_manifest('qbo_talk')
 #roslib.load_manifest('object_recognizer')
-#roslib.load_manifest('qbo_pymouth')
+roslib.load_manifest('qbo_pymouth')
 
 import rospy
 from std_msgs.msg import String
 
-from qbo_listen.msg import Listened
+#from qbo_listen.msg import Listened
 
 from lib_qbo_pyarduqbo import qbo_control_client
-from lib_face_traking_py import qbo_face_traking_client
+#from lib_face_traking_py import qbo_face_traking_client
 #from lib_qbo_listen_py import qbo_listen_client
 from lib_qbo_talk_py import qbo_talk_client
 from qbo_pymouth import mouth
@@ -227,12 +227,12 @@ from syscall import runCmd
 class qbo_face_traking_web_api():
 
     def __init__(self):
-        self.face_traking_control=qbo_face_traking_client()
+#        self.face_traking_control=qbo_face_traking_client()
         self.face_traking_control_params=[]
         self.face_traking_control_get_functions={}
         self.face_traking_control_set_functions={}
-        self.face_traking_control_params.append('face')
-        self.face_traking_control_get_functions['face']=self.face_traking_control.getPosAndSize
+#        self.face_traking_control_params.append('face')
+#        self.face_traking_control_get_functions['face']=self.face_traking_control.getPosAndSize
         self.face_traking_control_params.append('start')
         self.face_traking_control_set_functions['start']=self.startFaceTraking
         self.face_traking_control_params.append('stop')
@@ -305,7 +305,7 @@ class qbo_stereo_web_api():
     def put(self,param,data):
         if param in self.stereo_control_set_functions.keys():
             return self.stereo_control_set_functions[param](data)
-
+'''
 class qbo_listen_web_api():
 
     def __init__(self):
@@ -327,7 +327,7 @@ class qbo_listen_web_api():
         if param in self.qbo_listen_control_set_functions.keys():
             return self.qbo_listen_control_set_functions[param](data)
 
-
+'''
 import urllib
 import urllib2_file
 import urllib2
