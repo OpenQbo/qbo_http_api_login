@@ -1,4 +1,26 @@
 #!/usr/bin/env python
+#
+# Software License Agreement (GPLv2 License)
+#
+# Copyright (c) 2012 OpenQbo, Inc.
+#
+# This program is free software; you can redistribute it and/or 
+# modify it under the terms of the GNU General Public License as 
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+# See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License 
+# along with this program; if not, write to the Free Software 
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, 
+# MA 02110-1301, USA.
+#
+# Authors: Miguel Angel Julian <miguel.a.j@openqbo.com>; 
+#          Daniel Cuadrado <daniel.cuadrado@openqbo.com>;
 
 import threading
 import tornado.httpserver
@@ -731,14 +753,14 @@ class qbo_arduqbo_web_api():
 #controlador=Controlador()
 
 lista_nodos={}
-lista_nodos['webcams_check']=qbo_webcams_test_web_api()
-lista_nodos['qbo_arduqbo']=qbo_arduqbo_web_api()
-lista_nodos['face_traking']=qbo_face_traking_web_api()
-lista_nodos['stereo_anaglyph']=qbo_stereo_web_api()
-#lista_nodos['qbo_listen']=qbo_listen_web_api()
-lista_nodos['qbo_talk']=qbo_talk_web_api()
-lista_nodos['test']=qbo_test_api()
-lista_nodos['mouth']=qbo_mouth_web_api()
+#lista_nodos['webcams_check']=qbo_webcams_test_web_api()
+#lista_nodos['qbo_arduqbo']=qbo_arduqbo_web_api()
+#lista_nodos['face_traking']=qbo_face_traking_web_api()
+#lista_nodos['stereo_anaglyph']=qbo_stereo_web_api()
+##lista_nodos['qbo_listen']=qbo_listen_web_api()
+#lista_nodos['qbo_talk']=qbo_talk_web_api()
+#lista_nodos['test']=qbo_test_api()
+#lista_nodos['mouth']=qbo_mouth_web_api()
 
 class QboNodeHandler(BaseHandler):
     #def options(self,node,param):
@@ -900,7 +922,9 @@ application = tornado.web.Application([
     (r'/stateMachine', StateMachine),	
 ], **settings)
 
-def spin():
+def myspin():
+    
+    #rospy.init_node('qbo_http_control')
     print 'empiezo el spin'
     rospy.spin()
     print 'acabo el spin'
@@ -910,9 +934,19 @@ def spin():
     exit()
 
 if __name__ == "__main__":
+        global lista_nodos
     #try:
         rospy.init_node('qbo_http_control')
-        threading.Thread(target=spin).start()
+        lista_nodos['webcams_check']=qbo_webcams_test_web_api()
+        lista_nodos['qbo_arduqbo']=qbo_arduqbo_web_api()
+        lista_nodos['face_traking']=qbo_face_traking_web_api()
+        lista_nodos['stereo_anaglyph']=qbo_stereo_web_api()
+        #lista_nodos['qbo_listen']=qbo_listen_web_api()
+        lista_nodos['qbo_talk']=qbo_talk_web_api()
+        lista_nodos['test']=qbo_test_api()
+        lista_nodos['mouth']=qbo_mouth_web_api()
+        rospy.sleep(1)
+        threading.Thread(target=myspin).start()
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(8880)
         tornado.ioloop.IOLoop.instance().start()
