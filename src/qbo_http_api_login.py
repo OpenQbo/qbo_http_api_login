@@ -51,7 +51,13 @@ from qbo_pymouth import mouth
 
 from time import sleep
 
+from os import environ
 
+from random import *
+
+import string
+
+import time
 
 class BaseHandler(tornado.web.RequestHandler):
     def get_current_user(self):
@@ -800,6 +806,8 @@ class QboNodeHandler(BaseHandler):
         #print "llega un post"
         #print 'nodo: ',node,' parametro: ',param,' argumentos: ', self.request.arguments
         return_value=''
+
+        print "POSTT "+node
         if node in lista_nodos.keys():
             #print "llega un post"
             data=json.loads(self.get_argument("data", None)) #Pasar a objeto desde json
@@ -814,6 +822,7 @@ class QboNodeHandler(BaseHandler):
                 return_value=return_value+json.dumps(lista_nodos[node].put(param,data))
                 #self.write(json.dumps(lista_nodos[node].put(param,data)))
         else:
+
             return_value=return_value+json.dumps(False)
             #print 'No hay datos 2'
             #self.write(json.dumps(False))
@@ -821,6 +830,8 @@ class QboNodeHandler(BaseHandler):
         jsoncallback=self.get_argument("jsoncallback", None) #Funcion a ejecutar en el cliente
         if jsoncallback:
             return_value=jsoncallback+'('+return_value+')'
+
+        print return_value
         self.write(return_value)
         return
 
@@ -907,6 +918,72 @@ class StateMachine(BaseHandler):
 		pub.publish(msg);	
 
 
+class qbo_sip_functions():
+
+    def __init__(self):
+        self.sip_control_params=[]
+        self.sip_control_get_functions={}
+        self.sip_control_set_functions={}
+        self.sip_control_params.append('setIpSip')
+        self.sip_control_set_functions['setIpSip']=self.setIpSip
+        self.sip_control_params.append('getUserSipId')
+        self.sip_control_get_functions['getUserSipId']=self.getUserSipId
+        self.sip_control_params.append('getBotSipId')
+        self.sip_control_get_functions['getBotSipId']=self.getBotSipId
+
+        self.linphoneRunning = False
+
+
+    def setIpSip(self,data):
+        global processLinphone
+        global envi
+
+        if self.linphoneRunning:
+	    print "Dieeeeeeeeeeee linphone die!"
+            try:
+                processLinphone.send_signal(signal.SIGINT)
+                self.linphoneRunning = False
+            except Exception as e:
+                print "ERROR when killing a proccess. "+str(e) 
+
+            #we give them sometime to finish the job
+            sleep(0.5)
+	
+
+        print data['ip'] 
+        rospy.set_param("linphone_host",data['ip'])
+
+	a = rospy.get_param("linphone_host")
+
+        print ">>>>>>>>>>>>> "+a
+
+        #now we know the IP, we can launch the linphone in the robot
+        cmd = "roslaunch qbo_linphone launch_on_robot.launch"
+        processLinphone = subprocess.Popen(cmd.split(),env=envi)
+
+        print "<<<<<<<< "+processLinphone  
+        self.linphoneRunning = True
+
+    def getUserSipId(self):
+        global auth
+        return auth
+
+    def getBotSipId(self):
+        global authBot
+        return authBot
+
+    def get_info(self):
+        pass
+    def get(self,param):
+        print "SIP get algo, no se que"
+        if param in self.sip_control_get_functions.keys():
+            return self.sip_control_get_functions[param]()
+           
+    def put(self,param,data):
+        print "SIP put algo, no se que"
+        if param in self.sip_control_set_functions.keys():
+            return self.sip_control_set_functions[param](data)
+
 settings = {
     'auto_reload': True,
     'cookie_secret': '32oETzKXQAGaYdkL5gEmGeJJFuYh7EQnp2XdTP1o/Vo=',
@@ -923,13 +1000,73 @@ application = tornado.web.Application([
 ], **settings)
 
 def myspin():
+
+    # we setup the 
     
+    path2webi = roslib.packages.get_pkg_dir("qbo_webi")    
+
+    chars = string.ascii_letters + string.digits
+
+    global envi
+    envi = environ.copy()
+    path = envi["PYTHONPATH"]
+    envi["PYTHONPATH"] = "/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/p2p-sip:/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/p2p-sip/src:/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/p2p-sip/src/app:/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/p2p-sip/src/external:/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/rtmplite:"+path
+
+    global auth
+    global authBot
+
+    auth = "notDefined"
+    authBot = "notDefined"
+
+    auth = "".join(choice(chars) for x in range(randint(4, 4)))
+    authBot = "".join(choice(chars) for x in range(randint(4, 4)))
+
+    #launch sipd.py
+    cmd = "python "+path2webi+"/src/teleoperation/sip2rtmp/p2p-sip/src/app/sipd.py -u "+auth+" -b "+authBot
+    print "Usuario= "+ auth +"     BOT= "+authBot
+    global processSipd
+    processSipd = subprocess.Popen(cmd.split(),env=envi)
+
+    #launch siprtmp.py
+    cmd = "python "+path2webi+"/src/teleoperation/sip2rtmp/rtmplite/siprtmp.py"
+    global processSiprtmp
+    processSiprtmp = subprocess.Popen(cmd.split(),env=envi)
+
+    #we give them sometime to finish the job
+    time.sleep(0.5)
+
+    auth = auth
+    authBot =authBot
+
+    #data ready for the node qbo_linphone, but we still need to know the host
+    rospy.set_param("linphone_botName",authBot)
+    rospy.set_param("linphone_host","waiting for the mobile to know the IP")
+    
+    
+
     #rospy.init_node('qbo_http_control')
     print 'empiezo el spin'
     rospy.spin()
     print 'acabo el spin'
     if tornado.ioloop.IOLoop.instance().running():
         tornado.ioloop.IOLoop.instance().stop()
+
+
+    try:
+        processSiprtmp.send_signal(signal.SIGINT)
+    except Exception as e:
+        print "ERROR when killing a proccess. "+str(e)
+     
+    try:
+        processLinphone.send_signal(signal.SIGINT)
+    except Exception as e:
+        print "ERROR when killing a proccess. "+str(e)
+
+    try:
+        processSipd.send_signal(signal.SIGINT)
+    except Exception as e:
+        print "ERROR when killing a proccess. "+str(e)
+
     
     exit()
 
@@ -945,6 +1082,7 @@ if __name__ == "__main__":
         lista_nodos['qbo_talk']=qbo_talk_web_api()
         lista_nodos['test']=qbo_test_api()
         lista_nodos['mouth']=qbo_mouth_web_api()
+	lista_nodos['sip'] = qbo_sip_functions()
         rospy.sleep(1)
         threading.Thread(target=myspin).start()
         http_server = tornado.httpserver.HTTPServer(application)
@@ -954,5 +1092,6 @@ if __name__ == "__main__":
     #except Exception, e:
         #print 'Excepcion: ', e
         #exit()
+
 
 
