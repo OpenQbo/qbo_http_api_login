@@ -59,6 +59,10 @@ import string
 
 import time
 
+import signal
+
+import commands
+
 class BaseHandler(tornado.web.RequestHandler):
     def get_current_user(self):
 
@@ -807,7 +811,6 @@ class QboNodeHandler(BaseHandler):
         #print 'nodo: ',node,' parametro: ',param,' argumentos: ', self.request.arguments
         return_value=''
 
-        print "POSTT "+node
         if node in lista_nodos.keys():
             #print "llega un post"
             data=json.loads(self.get_argument("data", None)) #Pasar a objeto desde json
@@ -930,57 +933,169 @@ class qbo_sip_functions():
         self.sip_control_get_functions['getUserSipId']=self.getUserSipId
         self.sip_control_params.append('getBotSipId')
         self.sip_control_get_functions['getBotSipId']=self.getBotSipId
+        self.sip_control_params.append('endCall')
+        self.sip_control_get_functions['endCall']=self.endCall
+        self.sip_control_params.append('startSIPServer')
+        self.sip_control_set_functions['startSIPServer']=self.startSIPServer
+        self.sip_control_params.append('stopSIPServer')
+        self.sip_control_get_functions['stopSIPServer']=self.stopSIPServer
 
         self.linphoneRunning = False
+        self.auth = "notDefined"
+        self.authBot = "notDefined"
+        self.envi = ""
 
+        self.processSipd = ""
+        self.processSiprtmp = ""
+        self.processLinphone = ""
+        self.processAudioControl = ""
+
+        self.ecoCancelationId = "notDefined"
+
+    def startSIPServer(self,data):
+        print "Start sip server"
+        path2webi = roslib.packages.get_pkg_dir("qbo_webi")
+
+        chars = string.ascii_letters + string.digits
+
+        self.envi = environ.copy()
+        path = self.envi["PYTHONPATH"]
+        self.envi["PYTHONPATH"] = "/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/p2p-sip:/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/p2p-sip/src:/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/p2p-sip/src/app:/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/p2p-sip/src/external:/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/rtmplite:"+path
+
+
+        self.auth = "notDefined"
+        self.authBot = "notDefined"
+
+        self.auth = "".join(choice(chars) for x in range(randint(4, 4)))
+        self.authBot = "".join(choice(chars) for x in range(randint(4, 4)))
+
+
+        #we check if sipd is already active, if so, we close it        
+        cmd = "ps -aux | grep sipd"
+        out = runCmd(cmd)
+        out = out[0]
+
+        if "sipd.py" in out:
+            pid = out.split(" ")[2]
+            print ">>>>>>>>>>>>>>>>>>>>>>>>"+pid+" <<<<<<<<<<<<<<<<<<<<<<<< "
+            os.kill(int(pid), signal.SIGTERM)
+
+
+        # the same with siprtmp
+        cmd = "ps -aux | grep siprtmp"
+        out = runCmd(cmd)
+        out = out[0]
+
+        if "siprtmp.py" in out:
+            pid = out.split(" ")[2]
+            print ">>>>>>>>>>>>>>>>>>>>>>>>"+pid+" <<<<<<<<<<<<<<<<<<<<<<<< "
+            os.kill(int(pid), signal.SIGTERM)        
+
+
+        #launch audio control with sip profile
+        cmd = "roslaunch qbo_audio_control audio_control_sip.launch"
+        self.processAudioControl = subprocess.Popen(cmd.split(),env=self.envi)
+
+        #launch sipd.py
+        cmd = "python "+path2webi+"/src/teleoperation/sip2rtmp/p2p-sip/src/app/sipd.py -u "+self.auth+" -b "+self.authBot
+        print "Usuario= "+ self.auth +"     BOT= "+self.authBot
+        self.processSipd = subprocess.Popen(cmd.split(),env=self.envi)
+
+        #launch siprtmp.py
+        cmd = "python "+path2webi+"/src/teleoperation/sip2rtmp/rtmplite/siprtmp.py"
+        self.processSiprtmp = subprocess.Popen(cmd.split(),env=self.envi)
+
+        #we give them sometime to finish the job
+        time.sleep(0.5)
+
+        #data ready for the node qbo_linphone, but we still need to know the host
+        rospy.set_param("linphone_botName",self.authBot)
+        rospy.set_param("linphone_host","waiting for the mobile to know the IP")
+
+        #ECO cancelation on
+        if data['ecoCancelation']:
+            cmd = "pactl load-module module-echo-cancel"
+            out = runCmd(cmd);
+            self.ecoCancelationId = out[0].replace("\n","")
+            print "ECO cancelation ON "+str(self.ecoCancelationId)
+
+        print "FIn de inicio de sip"
+
+    def stopSIPServer(self):
+        try:
+            self.processSiprtmp.send_signal(signal.SIGINT)
+        except Exception as e:
+            print "ERROR when killing a siprtmp. "+str(e)
+
+        try:
+            self.processLinphone.send_signal(signal.SIGINT)
+        except Exception as e:
+            print "ERROR when killing a linphone. "+str(e)
+
+        try:
+            self.processSipd.send_signal(signal.SIGINT)
+        except Exception as e:
+            print "ERROR when killing a sipd. "+str(e)
+
+
+
+	#We go back to the default audio control
+        cmd = "roslaunch qbo_audio_control audio_control_listener.launch"
+        try:
+            subprocess.Popen(cmd.split(),env=self.envi)
+        except:
+            print "ERROR when launching audio_control_listener.launch"+str(e)            
+
+        #ECO cancelation off
+        if self.ecoCancelationId != "notDefined":
+            print "ECO Cancelation off "+str(self.ecoCancelationId)
+            cmd = "pactl unload-module "+self.ecoCancelationId
+            out = runCmd(cmd)
+            print "salida "+str(out)
+            print "Done"
 
     def setIpSip(self,data):
-        global processLinphone
-        global envi
 
         if self.linphoneRunning:
-	    print "Dieeeeeeeeeeee linphone die!"
             try:
-                processLinphone.send_signal(signal.SIGINT)
+                self.processLinphone.send_signal(signal.SIGINT)
                 self.linphoneRunning = False
             except Exception as e:
                 print "ERROR when killing a proccess. "+str(e) 
 
             #we give them sometime to finish the job
-            sleep(0.5)
+            sleep(1)
 	
 
-        print data['ip'] 
         rospy.set_param("linphone_host",data['ip'])
-
-	a = rospy.get_param("linphone_host")
-
-        print ">>>>>>>>>>>>> "+a
 
         #now we know the IP, we can launch the linphone in the robot
         cmd = "roslaunch qbo_linphone launch_on_robot.launch"
-        processLinphone = subprocess.Popen(cmd.split(),env=envi)
+        self.processLinphone = subprocess.Popen(cmd.split(),env=self.envi)
 
-        print "<<<<<<<< "+processLinphone  
+        rospy.wait_for_service('autocaller')
+
         self.linphoneRunning = True
 
     def getUserSipId(self):
-        global auth
-        return auth
+        return self.auth
 
     def getBotSipId(self):
-        global authBot
-        return authBot
+        return self.authBot
+
+    def endCall(self):
+	cmd = "linphonecsh hangup"
+        subprocess.Popen(cmd.split(),env=self.envi)
+        print "END CALL"
 
     def get_info(self):
         pass
+
     def get(self,param):
-        print "SIP get algo, no se que"
         if param in self.sip_control_get_functions.keys():
             return self.sip_control_get_functions[param]()
            
     def put(self,param,data):
-        print "SIP put algo, no se que"
         if param in self.sip_control_set_functions.keys():
             return self.sip_control_set_functions[param](data)
 
@@ -1001,72 +1116,17 @@ application = tornado.web.Application([
 
 def myspin():
 
-    # we setup the 
-    
-    path2webi = roslib.packages.get_pkg_dir("qbo_webi")    
-
-    chars = string.ascii_letters + string.digits
-
-    global envi
-    envi = environ.copy()
-    path = envi["PYTHONPATH"]
-    envi["PYTHONPATH"] = "/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/p2p-sip:/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/p2p-sip/src:/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/p2p-sip/src/app:/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/p2p-sip/src/external:/opt/ros/electric/stacks/qbo_stack/qbo_webi/src/teleoperation/sip2rtmp/rtmplite:"+path
-
-    global auth
-    global authBot
-
-    auth = "notDefined"
-    authBot = "notDefined"
-
-    auth = "".join(choice(chars) for x in range(randint(4, 4)))
-    authBot = "".join(choice(chars) for x in range(randint(4, 4)))
-
-    #launch sipd.py
-    cmd = "python "+path2webi+"/src/teleoperation/sip2rtmp/p2p-sip/src/app/sipd.py -u "+auth+" -b "+authBot
-    print "Usuario= "+ auth +"     BOT= "+authBot
-    global processSipd
-    processSipd = subprocess.Popen(cmd.split(),env=envi)
-
-    #launch siprtmp.py
-    cmd = "python "+path2webi+"/src/teleoperation/sip2rtmp/rtmplite/siprtmp.py"
-    global processSiprtmp
-    processSiprtmp = subprocess.Popen(cmd.split(),env=envi)
-
-    #we give them sometime to finish the job
-    time.sleep(0.5)
-
-    auth = auth
-    authBot =authBot
-
-    #data ready for the node qbo_linphone, but we still need to know the host
-    rospy.set_param("linphone_botName",authBot)
-    rospy.set_param("linphone_host","waiting for the mobile to know the IP")
-    
-    
 
     #rospy.init_node('qbo_http_control')
     print 'empiezo el spin'
+
+
     rospy.spin()
     print 'acabo el spin'
     if tornado.ioloop.IOLoop.instance().running():
         tornado.ioloop.IOLoop.instance().stop()
 
-
-    try:
-        processSiprtmp.send_signal(signal.SIGINT)
-    except Exception as e:
-        print "ERROR when killing a proccess. "+str(e)
-     
-    try:
-        processLinphone.send_signal(signal.SIGINT)
-    except Exception as e:
-        print "ERROR when killing a proccess. "+str(e)
-
-    try:
-        processSipd.send_signal(signal.SIGINT)
-    except Exception as e:
-        print "ERROR when killing a proccess. "+str(e)
-
+    lista_nodos['sip'].stopSIPServer()
     
     exit()
 
@@ -1092,6 +1152,67 @@ if __name__ == "__main__":
     #except Exception, e:
         #print 'Excepcion: ', e
         #exit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def runCmd(self,cmd, timeout=None):
+    '''
+    Will execute a command, read the output and return it back.
+   
+    @param cmd: command to execute
+    @param timeout: process timeout in seconds
+    @return: a tuple of three: first stdout, then stderr, then exit code
+    @raise OSError: on missing command or if a timeout was reached
+    '''
+
+    ph_out = None # process output
+    ph_err = None # stderr
+    ph_ret = None # return code
+
+    p = subprocess.Popen(cmd, shell=True,
+                     stdout=subprocess.PIPE,
+                     stderr=subprocess.PIPE,
+                     env=self.env)
+    # if timeout is not set wait for process to complete
+    if not timeout:
+        ph_ret = p.wait()
+    else:
+        fin_time = time.time() + timeout
+        while p.poll() == None and fin_time > time.time():
+            time.sleep(1)
+
+        # if timeout reached, raise an exception
+        if fin_time < time.time():
+
+            # starting 2.6 subprocess has a kill() method which is preferable
+            # p.kill()
+            os.kill(p.pid, signal.SIGKILL)
+            raise OSError("Process timeout has been reached")
+
+        ph_ret = p.returncode
+
+
+    ph_out, ph_err = p.communicate()
+
+    return (ph_out, ph_err, ph_ret)
 
 
 
