@@ -99,7 +99,7 @@ passwords['dani1234']='1234'
 
 class AuthHandler(BaseHandler): 
     def get(self):
-        print 'get de auth'
+        #print 'get de auth'
 
         #userid=self.get_current_user()
         #print userid
@@ -134,71 +134,56 @@ class AuthHandler(BaseHandler):
 	'''
 
 
-        print 'post de auth'
+        #print 'post de auth'
         try:
             username = self.get_argument("username")
             password = self.get_argument("password")
         except:
-            print 'Datos no validos'
+            print 'User or Password incorrect'
             self.redirect("/")
             return
-	#abrimos el fichero que contiene los nombres de usuario con sus correspondientes pwd
+        #We open the file which have all the names and passwords
 	path = roslib.packages.get_pkg_dir("qbo_http_api_login")
         f = open(path+"/config/users_pwd","r")
 	try:
-		#miramos cada linea del fichero, buscando que la primera palabra coincida con el nombre
-		#y cuando asi sea, que coincida la password.
+                # We look for the username and check if the password given matches
 		for line in f:
 			line = line.replace("\n","")
 			parts = line.split(" ")
 			if parts[0]==username:
 				if parts[1] == password:
-					print 'Pass OK'
+					#print 'Pass OK'
 			                self.set_secure_cookie("user", self.get_argument("username")) 
-					print self.get_secure_cookie("user")
+					#print "cookie: "+self.get_secure_cookie("user")
         	        		self.redirect("/") 
 					return
 				else:
-					print 'Pass FAIL'
+					print 'Authentication FAIL'
 		        	        self.redirect("/auth/login")
 					return
 	
 	
 	except:			
-		print 'Pass FAIL'        		
+		print 'Authentication FAIL'        		
 		self.redirect("/auth/login")
 		return
 
-	#si llegamos aqui es que se ha insertado un usuario que no existe
-	print 'Pass FAIL'
+        #If we reach that far, is because the username given does not exist
+	print 'Authentication FAIL'
         self.redirect("/auth/login")
         return
 
 
 
 
-
-
-#codigo antiguo
-#        if passwords.has_key(username) and passwords[username]==password:
-#                print 'Pass OK'
-#                self.set_secure_cookie("user", self.get_argument("username")) 
-#                self.redirect("/") 
-#        else:
-#                print 'Pass FAIL'
-#                self.redirect("/auth/login")
-
-
 class LogoutHandler(BaseHandler): 
     def get(self): 
-        print 'get de logout'
         self.clear_cookie("user") 
         self.redirect("/")
 
 
 
 
-#va a ser diferente
 
 #URI: /nodo/[status,parametro]/
 # /nodos/ devuelve la lista de nodos. Solo get
@@ -314,14 +299,14 @@ class qbo_stereo_web_api():
         self.started=False
 
     def startStereo(self,data):
-        print 'Stereo START****************************************************'
+        print 'Stereo START'
         if not self.started:
             threading.Thread(target=runCmd,args=('rosrun stereo_anaglyph red_cyan_anaglyph.py __name:=stereo_anaglyph -c /stereo -d 20 -s',)).start()
             self.started=True
         #runCmd('echo START')
 
     def stopStereo(self,data):
-        print 'Stereo STOP****************************************************'
+        print 'Stereo STOP'
         #runCmd('echo STOP')
         threading.Thread(target=runCmd,args=('rosnode kill /stereo_anaglyph',)).start()
         #threading.Thread(target=runCmd,args=('rosnode kill /face_following_node',)).start()
@@ -834,7 +819,7 @@ class QboNodeHandler(BaseHandler):
         if jsoncallback:
             return_value=jsoncallback+'('+return_value+')'
 
-        print return_value
+        #print "valor retorno "+return_value
         self.write(return_value)
         return
 
@@ -881,43 +866,33 @@ class StateMachine(BaseHandler):
 	if("off" in on_off):
 		 msg.msg="THAT'S ALL FOR NOW Q B O"
 	elif(node=="follow me"):
-		print "que pasaaaasaa"
 		msg.msg="CAN YOU FOLLOW ME"
 	elif(node=="music player"):
-		print "a"
                 msg.msg="RUN MUSIC PLAYER"
 
 	elif(node=="run phone services"):
-                print "b"
                 msg.msg="RUN PHONE SERVICES"
 
 	elif(node=="random move"):
-                print "c"
                 msg.msg="WHY DON'T YOU TAKE A WALK"
 
 	elif(node=="face recognition"):
-                print "d"
                 msg.msg="Q B O TAKE A LOOK AT ME"
 
 	elif(node=="object recognition"):
-                print "e"
                 msg.msg="LETS SEE SOME OBJECTS"
 
 	elif(node=="ask the robot ip"):
-                print "f"
                 msg.msg="TELL ME YOUR IP"
 
 	elif(node=="face tracking"):
-                print "g"
                 msg.msg="WHY DON'T YOU LOOK A ROUND"
 
 	elif(node=="read mail"):
-                print "h"
                 msg.msg="Q B O CHECK MY E MAIL"
 
 
 	if(msg.msg != ""):
-		print "publicamos "+str(msg.msg)
 		pub.publish(msg);	
 
 
@@ -977,7 +952,6 @@ class qbo_sip_functions():
 
         if "sipd.py" in out:
             pid = out.split(" ")[2]
-            print ">>>>>>>>>>>>>>>>>>>>>>>>"+pid+" <<<<<<<<<<<<<<<<<<<<<<<< "
             os.kill(int(pid), signal.SIGTERM)
 
 
@@ -988,7 +962,6 @@ class qbo_sip_functions():
 
         if "siprtmp.py" in out:
             pid = out.split(" ")[2]
-            print ">>>>>>>>>>>>>>>>>>>>>>>>"+pid+" <<<<<<<<<<<<<<<<<<<<<<<< "
             os.kill(int(pid), signal.SIGTERM)        
 
 
@@ -998,7 +971,6 @@ class qbo_sip_functions():
 
         #launch sipd.py
         cmd = "python "+path2webi+"/src/teleoperation/sip2rtmp/p2p-sip/src/app/sipd.py -u "+self.auth+" -b "+self.authBot
-        print "Usuario= "+ self.auth +"     BOT= "+self.authBot
         self.processSipd = subprocess.Popen(cmd.split(),env=self.envi)
 
         #launch siprtmp.py
@@ -1051,7 +1023,7 @@ class qbo_sip_functions():
             print "ECO Cancelation off "+str(self.ecoCancelationId)
             cmd = "pactl unload-module "+self.ecoCancelationId
             out = runCmd(cmd)
-            print "salida "+str(out)
+            #print "salida "+str(out)
             print "Done"
 
     def setIpSip(self,data):
@@ -1119,10 +1091,7 @@ def myspin():
 
     #rospy.init_node('qbo_http_control')
     print 'empiezo el spin'
-
-
     rospy.spin()
-    print 'acabo el spin'
     if tornado.ioloop.IOLoop.instance().running():
         tornado.ioloop.IOLoop.instance().stop()
 
@@ -1148,7 +1117,6 @@ if __name__ == "__main__":
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(8880)
         tornado.ioloop.IOLoop.instance().start()
-        print 'salgo del main'
     #except Exception, e:
         #print 'Excepcion: ', e
         #exit()
