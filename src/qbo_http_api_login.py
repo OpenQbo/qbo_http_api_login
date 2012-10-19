@@ -643,7 +643,7 @@ class qbo_arduqbo_web_api():
         #self.qbo_arduqbo_set_functions['rightEyelidServoSpeed']=self.qbo_control
         self.qbo_arduqbo_params.append('MICs')
         self.qbo_arduqbo_get_functions['MICs']=self.qbo_control.MICsGet
-        self.qbo_arduqbo_set_functions['MICs']=self.qbo_control.MICsPut
+        #self.qbo_arduqbo_set_functions['MICs']=self.qbo_control.MICsPut
         #self.qbo_arduqbo_params.append('MIC0')
         #self.qbo_arduqbo_get_functions['MIC0']=self.qbo_control
         #self.qbo_arduqbo_params.append('MIC1')
