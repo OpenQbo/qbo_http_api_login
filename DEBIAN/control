@@ -1,6 +1,6 @@
 Package: qboros-electric-qbo-http-api-login
 Source: qboros-electric-qbo-http-api-login
-Version: 1.1-openqbo0
+Version: 1.2-openqbo0
 Priority: standard
 Architecture: amd64
 Section: OpenQbo
