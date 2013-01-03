@@ -631,7 +631,6 @@ def myspin():
 if __name__ == "__main__":
         global nodes_list
         rospy.init_node('qbo_http_control')
-        nodes_list['webcams_check']=qbo_webcams_test_web_api()
         nodes_list['qbo_arduqbo']=qbo_arduqbo_web_api()
         nodes_list['face_traking']=qbo_face_traking_web_api()
         nodes_list['stereo_anaglyph']=qbo_stereo_web_api()
